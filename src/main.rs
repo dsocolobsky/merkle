@@ -1,16 +1,17 @@
 use sha3::{Digest, Keccak256};
 
+type Hash = [u8; 32];
 
 #[derive(Debug)]
 struct MerkleTree {
-    levels: Vec<Vec<String>>
+    levels: Vec<Vec<Hash>>
 }
 
 impl MerkleTree {
     /// Creates a Merkle Tree given a vector of u32
     fn create_from_values(initial_vals: &[u32]) -> Self {
         let initial = create_initial_level(initial_vals);
-        let mut actual: Box<Vec<String>> = Box::new(initial);
+        let mut actual: Box<Vec<Hash>> = Box::new(initial);
         let mut merkle = MerkleTree {
             levels: vec![],
         };
@@ -33,12 +34,12 @@ impl MerkleTree {
     }
 
     /// Returns the leafs for the tree
-    fn leafs(&self) -> &Vec<String> {
+    fn leafs(&self) -> &Vec<Hash> {
         &self.levels[0]
     }
 
     /// Returns the root hash of the tree
-    fn root(&self) -> Option<&String> {
+    fn root(&self) -> Option<&Hash> {
         if let Some(root_level) = self.levels.last() {
             Some(&root_level[0])
         } else {
@@ -53,14 +54,14 @@ impl MerkleTree {
     }
 
     /// Checks if the given hash is present at any level of the Merkle Tree
-    fn contains_hash(&self, hash: &String) -> bool {
+    fn contains_hash(&self, hash: &Hash) -> bool {
         self.levels.iter().any(|level| level.contains(hash))
     }
 
     /// Generates a proof that a certain element belongs to the tree, if present.
-    fn generate_proof(&self, element: u32) -> Option<(Vec<String>, usize)> {
+    fn generate_proof(&self, element: u32) -> Option<(Vec<Hash>, usize)> {
         let leaf_index = self.leaf_index_for_element(element)?;
-        let mut proof: Vec<String> = vec![];
+        let mut proof: Vec<Hash> = vec![];
 
         let mut index = leaf_index;
         for level in self.levels.iter().take(self.height() - 1) {
@@ -76,7 +77,7 @@ impl MerkleTree {
     }
 
     /// Given an element, it's index and a proof verifies it against the root of a Merkle Tree
-    fn verify_proof(&self, element: u32, index: usize, proof: &[String]) -> bool {
+    fn verify_proof(&self, element: u32, index: usize, proof: &[Hash]) -> bool {
         let Some(root) = self.root() else {
             return false;
         };
@@ -84,9 +85,9 @@ impl MerkleTree {
         let mut index = index;
         for p in proof.iter() {
             hash = if index % 2 == 0 {
-                hash_multiple(vec![hash.clone(), p.clone()])
+                hash_multiple(&vec![hash.clone(), p.clone()])
             } else {
-                hash_multiple(vec![p.clone(), hash.clone()])
+                hash_multiple(&vec![p.clone(), hash.clone()])
             };
             index /= 2;
         }
@@ -100,8 +101,8 @@ impl MerkleTree {
         }
         // Add n times the hash to the leaves
         let hash = hash_one(element);
-        let mut new_leafs: Vec<String> = vec![];
-        for _ in (0..n) {
+        let mut new_leafs: Vec<Hash> = vec![];
+        for _ in 0..n {
             new_leafs.push(hash.clone());
         }
         self.levels[0].extend_from_slice(&new_leafs);
@@ -118,46 +119,43 @@ impl MerkleTree {
         let new_root_level = calculate_next_level(&self.levels[self.height()-1]);
         self.levels.push(new_root_level);
     }
-
 }
 
 
 /// Creates the next (upper) level for a Merkle Tree given the previous level.
-fn calculate_next_level(prev_level: &[String]) -> Vec<String> {
-    let mut next_level: Vec<String> = vec![];
+fn calculate_next_level(prev_level: &[Hash]) -> Vec<Hash> {
+    let mut next_level: Vec<Hash> = vec![];
     if prev_level.is_empty() {
         return next_level;
     }
     for i in (0..prev_level.len()-1).step_by(2) {
-        let hash = hash_multiple(vec![prev_level[i].clone(), prev_level[i+1].clone()]);
+        let hash = hash_multiple(&vec![prev_level[i].clone(), prev_level[i + 1].clone()]);
         next_level.push(hash);
     }
     next_level
 }
 
 /// Creates the bottom level (leafs) for a Merkle Tree given a vector of u32
-fn create_initial_level(initial_vals: &[u32]) -> Vec<String> {
-    let mut res: Vec<String> = vec![];
+fn create_initial_level(initial_vals: &[u32]) -> Vec<Hash> {
+    let mut res: Vec<Hash> = vec![];
     for &i in initial_vals.iter() {
-        let hash = Keccak256::digest(i.to_le_bytes());
-        let hash = hex::encode(hash);
-        res.push(hash);
+        res.push(Keccak256::digest(i.to_le_bytes()).into());
     }
     res
 }
 
 /// Returns the digest for a single u32
-fn hash_one(n: u32) -> String {
-    hex::encode(Keccak256::digest(n.to_le_bytes()))
+fn hash_one(n: u32) -> Hash {
+    Keccak256::digest(n.to_le_bytes()).into()
 }
 
 /// Returns the digest for several strings
-fn hash_multiple(hashes: Vec<String>) -> String {
+fn hash_multiple(hashes: &[Hash]) -> Hash {
     let mut hasher = Keccak256::new();
     for h in hashes.iter() {
         sha3::Digest::update(&mut hasher, h);
     }
-    hex::encode(hasher.finalize())
+    hasher.finalize().into()
 }
 
 /// Returns if a number is power of 2, or 0
@@ -204,13 +202,13 @@ mod tests {
 
         let three_hash = hash_one(3);
         let four_hash = hash_one(4);
-        let threefour_hash = hash_multiple(vec![three_hash.clone(), four_hash.clone()]);
+        let threefour_hash = hash_multiple(&vec![three_hash.clone(), four_hash.clone()]);
 
         let five_hash = hash_one(5);
         let six_hash = hash_one(6);
-        let fivesix_hash = hash_multiple(vec![five_hash.clone(), six_hash.clone()]);
+        let fivesix_hash = hash_multiple(&vec![five_hash.clone(), six_hash.clone()]);
 
-        let root = hash_multiple(vec![threefour_hash.clone(), fivesix_hash.clone()]);
+        let root = hash_multiple(&vec![threefour_hash.clone(), fivesix_hash.clone()]);
 
         // Test we can get the leaf index for each element
         assert_eq!(tree.leaf_index_for_element(5), Some(2));
