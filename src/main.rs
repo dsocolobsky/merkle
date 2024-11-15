@@ -27,6 +27,11 @@ impl MerkleTree {
         self.levels.len()
     }
 
+    /// Returns the number of elements in the tree (leafs)
+    fn num_elements(&self) -> usize {
+        self.leafs().len()
+    }
+
     /// Returns the leafs for the tree
     fn leafs(&self) -> &Vec<String> {
         &self.levels[0]
@@ -88,6 +93,32 @@ impl MerkleTree {
         hash == *root
     }
 
+    fn add_element(&mut self, element: u32) {
+        let n = self.num_elements();
+        if !is_power_of_2(n) {
+            unimplemented!("Only can add to a tree with power of 2 elements");
+        }
+        // Add n times the hash to the leaves
+        let hash = hash_one(element);
+        let mut new_leafs: Vec<String> = vec![];
+        for _ in (0..n) {
+            new_leafs.push(hash.clone());
+        }
+        self.levels[0].extend_from_slice(&new_leafs);
+
+        let mut next_level_extension = calculate_next_level(&new_leafs);
+        let last_level = self.height() - 1;
+        for current_level in self.levels.iter_mut().skip(1).take(last_level) {
+            current_level.extend_from_slice(&next_level_extension);
+            next_level_extension = calculate_next_level(&next_level_extension);
+        }
+        // We are now at the level previous from the root, first extend that level
+        self.levels[last_level].extend_from_slice(&next_level_extension);
+        // Now generate the new root based on that level, and push it to the end
+        let new_root_level = calculate_next_level(&self.levels[self.height()-1]);
+        self.levels.push(new_root_level);
+    }
+
 }
 
 
@@ -129,6 +160,12 @@ fn hash_multiple(hashes: Vec<String>) -> String {
     hex::encode(hasher.finalize())
 }
 
+/// Returns if a number is power of 2, or 0
+// In this case considering 0 as a power of 2 is useful.
+fn is_power_of_2(n: usize) -> bool {
+    (n & (n - 1)) == 0
+}
+
 fn main() {
     let tree = MerkleTree::create_from_values(&vec![3, 4, 5, 6, 9, 10, 2, 1]);
     dbg!(&tree);
@@ -162,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_creation_and_contains_hash() {
-        let tree = MerkleTree::create_from_values(&vec![3, 4, 5, 6]);
+        let mut tree = MerkleTree::create_from_values(&vec![3, 4, 5, 6]);
         dbg!(&tree);
 
         let three_hash = hash_one(3);
@@ -204,6 +241,14 @@ mod tests {
         assert!(!tree.verify_proof(9, index_6, &proof_6,));
 
         // Test verify_proof is None for non-existent item
-        assert_eq!(tree.generate_proof(11), None)
+        assert_eq!(tree.generate_proof(11), None);
+
+        // Now let's attempt to add a new element to the three
+        assert_eq!(tree.leaf_index_for_element(7), None);
+        tree.add_element(7);
+        assert_eq!(tree.leaf_index_for_element(7), Some(4));
+        let (proof_7, index_7) = tree.generate_proof(7).unwrap();
+        dbg!(&proof_7);
+        assert!(tree.verify_proof(7, index_7, &proof_7,));
     }
 }
