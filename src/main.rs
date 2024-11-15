@@ -54,9 +54,7 @@ impl MerkleTree {
 
     /// Generates a proof that a certain element belongs to the tree, if present.
     fn generate_proof(&self, element: u32) -> Option<(Vec<String>, usize)> {
-        let Some( leaf_index) = self.leaf_index_for_element(element) else {
-            return None
-        };
+        let leaf_index = self.leaf_index_for_element(element)?;
         let mut proof: Vec<String> = vec![];
 
         let mut index = leaf_index;
@@ -66,7 +64,7 @@ impl MerkleTree {
             } else {
                 proof.push(level[index-1].clone())
             }
-            index = index / 2;
+            index /= 2;
         }
 
         Some((proof, leaf_index))
@@ -85,7 +83,7 @@ impl MerkleTree {
             } else {
                 hash_multiple(vec![p.clone(), hash.clone()])
             };
-            index = index / 2;
+            index /= 2;
         }
         hash == *root
     }
