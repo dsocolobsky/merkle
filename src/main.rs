@@ -1,8 +1,8 @@
+use std::fmt::{Debug, Formatter};
 use sha3::{Digest, Keccak256};
 
 type Hash = [u8; 32];
 
-#[derive(Debug)]
 struct MerkleTree {
     levels: Vec<Vec<Hash>>
 }
@@ -121,6 +121,39 @@ impl MerkleTree {
     }
 }
 
+impl Debug for MerkleTree {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{{")?;
+        for level in &self.levels {
+            writeln!(f, "{{")?;
+            for hash in level {
+                write!(f, "\t")?;
+                for byte in hash {
+                    write!(f, "{:02x}", byte)?;
+                }
+                write!(f, ",\n")?;
+            }
+            writeln!(f, "}},")?;
+        }
+        writeln!(f, "}}")
+    }
+}
+
+macro_rules! dbg_level {
+    ($var:expr) => {{
+        let name = stringify!($var);
+        println!("{}: {{", name);
+        for hash in &$var {
+            println!(
+                "\t{},",
+                hash.iter()
+                    .map(|byte| format!("{:02x}", byte))
+                    .collect::<String>()
+            );
+        }
+        println!("}}");
+    }};
+}
 
 /// Creates the next (upper) level for a Merkle Tree given the previous level.
 fn calculate_next_level(prev_level: &[Hash]) -> Vec<Hash> {
@@ -165,7 +198,7 @@ fn is_power_of_2(n: usize) -> bool {
 }
 
 fn main() {
-    let tree = MerkleTree::create_from_values(&vec![3, 4, 5, 6, 9, 10, 2, 1]);
+    let mut tree = MerkleTree::create_from_values(&vec![3, 4, 5, 6, 11, 10, 2, 1]);
     dbg!(&tree);
 
     // Ensure tree contains a given hash
@@ -175,8 +208,10 @@ fn main() {
         println!("Does not contain hash for 5")
     }
 
+    tree.add_element(9);
     // Create and verify proof
     let (proof, idx) = tree.generate_proof( 9).unwrap();
+    dbg_level!(proof);
     if tree.verify_proof(9, idx, &proof) {
         println!("9 belongs to tree")
     } else {
@@ -228,13 +263,13 @@ mod tests {
 
         // Test verify_proof for even index
         let (proof_3, index_3) = tree.generate_proof(3).unwrap();
-        dbg!(&proof_3);
+        dbg_level!(proof_3);
         assert!(tree.verify_proof(3, index_3, &proof_3,));
         assert!(!tree.verify_proof(9, index_3, &proof_3,));
 
         // Test tree.verify_proof for odd index
         let (proof_6, index_6) = tree.generate_proof(6).unwrap();
-        dbg!(&proof_6);
+        dbg_level!(proof_6);
         assert!(tree.verify_proof(6, index_6, &proof_6,));
         assert!(!tree.verify_proof(9, index_6, &proof_6,));
 
@@ -246,7 +281,7 @@ mod tests {
         tree.add_element(7);
         assert_eq!(tree.leaf_index_for_element(7), Some(4));
         let (proof_7, index_7) = tree.generate_proof(7).unwrap();
-        dbg!(&proof_7);
+        dbg_level!(proof_7);
         assert!(tree.verify_proof(7, index_7, &proof_7,));
     }
 }
