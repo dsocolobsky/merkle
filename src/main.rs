@@ -1,5 +1,8 @@
+mod serializable;
+
 use std::fmt::{Debug, Formatter};
 use sha3::{Digest, Keccak256};
+use crate::serializable::Serializable;
 
 type Hash = [u8; 32];
 
@@ -9,7 +12,7 @@ struct MerkleTree {
 
 impl MerkleTree {
     /// Creates a Merkle Tree given a vector of u32
-    fn create_from_values(initial_vals: &[u32]) -> Self {
+    fn create_from_values<T: Serializable>(initial_vals: &[T]) -> Self {
         let initial = create_initial_level(initial_vals);
         let mut actual: Box<Vec<Hash>> = Box::new(initial);
         let mut merkle = MerkleTree {
@@ -169,16 +172,16 @@ fn calculate_next_level(prev_level: &[Hash]) -> Vec<Hash> {
 }
 
 /// Creates the bottom level (leafs) for a Merkle Tree given a vector of u32
-fn create_initial_level(initial_vals: &[u32]) -> Vec<Hash> {
+fn create_initial_level<T: Serializable>(initial_vals: &[T]) -> Vec<Hash> {
     let mut res: Vec<Hash> = vec![];
-    for &i in initial_vals.iter() {
+    for i in initial_vals.iter() {
         res.push(Keccak256::digest(i.to_le_bytes()).into());
     }
     res
 }
 
 /// Returns the digest for a single u32
-fn hash_one(n: u32) -> Hash {
+fn hash_one<T: Serializable>(n: T) -> Hash {
     Keccak256::digest(n.to_le_bytes()).into()
 }
 
@@ -283,5 +286,17 @@ mod tests {
         let (proof_7, index_7) = tree.generate_proof(7).unwrap();
         dbg_level!(proof_7);
         assert!(tree.verify_proof(7, index_7, &proof_7,));
+    }
+
+    #[test]
+    fn test_tree_is_generic_over_integers() {
+        let tree = MerkleTree::create_from_values(&vec![3i32, 4i32, 5i32, 6i32]);
+        assert_eq!(tree.num_elements(), 4);
+        let tree = MerkleTree::create_from_values(&vec![3u32, 4u32, 5u32, 6u32]);
+        assert_eq!(tree.num_elements(), 4);
+        let tree = MerkleTree::create_from_values(&vec![3u8, 4u8, 5u8, 6u8]);
+        assert_eq!(tree.num_elements(), 4);
+        let tree = MerkleTree::create_from_values(&vec![3i16, 4i16, 5i16, 6i16]);
+        assert_eq!(tree.num_elements(), 4);
     }
 }
