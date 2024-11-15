@@ -6,7 +6,11 @@ written in Rust.
 ## Running
 
 * Clone the repository `git clone git@github.com:dsocolobsky/merkle.git`
-* Run `make run`
+* `make run`
+* `make test`
 
 ## Implemented Features
-
+- Create a Merkle Tree from a list of integers of a size power of 2.
+- Add a new element to an existing Merkle Tree.
+- Create a proof that an element belongs to the Merkle Tree.
+- Given an element, index and a proof, verify it against a Merkle Tree.
