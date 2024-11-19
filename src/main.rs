@@ -191,12 +191,6 @@ fn hash_multiple(hashes: &[Hash]) -> Hash {
     hasher.finalize().into()
 }
 
-/// Returns if a number is power of 2, or 0
-// In this case considering 0 as a power of 2 is useful.
-fn is_power_of_2(n: usize) -> bool {
-    (n & (n - 1)) == 0
-}
-
 fn main() {
     let mut tree = MerkleTree::create_from_values(vec![3, 4, 5, 6, 11, 10, 2, 1]);
     dbg!(&tree);
