@@ -104,29 +104,19 @@ impl MerkleTree {
     }
 
     fn add_element(&mut self, element: u32) {
-        let n = self.num_elements();
-        if !is_power_of_2(n) {
-            unimplemented!("Only can add to a tree with power of 2 elements");
-        }
-        // Add n times the hash to the leaves
         let hash = hash_one(element);
-        let mut new_leafs: Vec<Hash> = vec![];
-        for _ in 0..n {
-            new_leafs.push(hash.clone());
+        self.levels[0].push(hash);
+        if self.leafs().len() % 2 == 1 { // Duplicate if we end up with odd number of elements
+            self.levels[0].push(hash);
         }
-        self.levels[0].extend_from_slice(&new_leafs);
 
-        let mut next_level_extension = calculate_next_level(&new_leafs);
-        let last_level = self.height() - 1;
-        for current_level in self.levels.iter_mut().skip(1).take(last_level) {
-            current_level.extend_from_slice(&next_level_extension);
-            next_level_extension = calculate_next_level(&next_level_extension);
+        let mut new_levels: Vec<Vec<Hash>> = vec![self.leafs().clone()];
+        let mut i = 0;
+        while new_levels[i].len() > 1 {
+            new_levels.push(calculate_next_level(&new_levels[i]));
+            i += 1;
         }
-        // We are now at the level previous from the root, first extend that level
-        self.levels[last_level].extend_from_slice(&next_level_extension);
-        // Now generate the new root based on that level, and push it to the end
-        let new_root_level = calculate_next_level(&self.levels[self.height()-1]);
-        self.levels.push(new_root_level);
+        self.levels = new_levels;
     }
 }
 
@@ -172,9 +162,13 @@ fn calculate_next_level(prev_level: &[Hash]) -> Vec<Hash> {
     }
     for i in (0..prev_level.len()-1).step_by(2) {
         let left = prev_level[i];
-        let right = *prev_level.get(i+1).unwrap_or(&left);
+        let right = prev_level[i+1];
         let hash = hash_multiple(&vec![left, right]);
         next_level.push(hash);
+    }
+    // If the level has an odd number of elements duplicate the last, unless it's the root.
+    if next_level.len() > 1 && next_level.len() % 2 == 1 {
+        next_level.push(next_level[next_level.len()-1]);
     }
     next_level
 }
@@ -311,12 +305,47 @@ mod tests {
     #[test]
     fn test_create_tree_with_odd_num_elements() {
         let tree = MerkleTree::create_from_values(vec![3, 4, 5]);
+        dbg!(&tree);
         assert_eq!(tree.num_elements(), 4);
         assert_eq!(tree.levels[1].len(), 2);
         assert_eq!(tree.leafs()[2], tree.leafs()[3]);
 
         let tree = MerkleTree::create_from_values(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        dbg!(&tree);
         assert_eq!(tree.num_elements(), 10);
         assert_eq!(tree.leafs()[8], tree.leafs()[9]);
+    }
+
+    #[test]
+    fn test_add_to_tree_4_elems() {
+        let mut tree = MerkleTree::create_from_values(vec![1, 2, 3, 4]);
+        assert_eq!(tree.num_elements(), 4);
+        dbg!(&tree);
+
+        tree.add_element(5);
+        dbg!(&tree);
+        assert_eq!(tree.num_elements(), 6);
+        let n = tree.leafs().len();
+        assert_eq!(tree.leafs()[n-1], tree.leafs()[n-2]);
+    }
+
+    #[test]
+    fn test_add_to_tree_8_elems() {
+        let mut tree = MerkleTree::create_from_values(vec![1, 2, 3, 4, 5, 6, 7, 8]);
+        assert_eq!(tree.levels[0].len(), 8);
+        assert_eq!(tree.levels[1].len(), 4);
+        assert_eq!(tree.levels[2].len(), 2);
+        assert_eq!(tree.levels[3].len(), 1);
+        dbg!(&tree);
+
+        tree.add_element(10);
+        dbg!(&tree);
+        assert_eq!(tree.levels[0].len(), 10);
+        assert_eq!(tree.levels[1].len(), 6);
+        assert_eq!(tree.levels[2].len(), 4);
+        assert_eq!(tree.levels[3].len(), 2);
+        assert_eq!(tree.levels[4].len(), 1);
+        let n = tree.leafs().len();
+        assert_eq!(tree.leafs()[n-1], tree.leafs()[n-2]);
     }
 }
