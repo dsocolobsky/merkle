@@ -12,18 +12,16 @@ struct MerkleTree {
 
 impl MerkleTree {
     /// Creates a Merkle Tree given a vector of u32
-    fn create_from_values<T: Serializable>(initial_vals: &[T]) -> Self {
-        let initial = create_initial_level(initial_vals);
-        let mut actual: Box<Vec<Hash>> = Box::new(initial);
-        let mut merkle = MerkleTree {
-            levels: vec![],
-        };
-        merkle.levels.push(*actual.clone());
-        while actual.len() > 1 {
-            actual = Box::new(calculate_next_level(&actual));
-            merkle.levels.push(*actual.clone());
+    fn create_from_values<T: Serializable + Clone>(initial_vals: Vec<T>) -> Self {
+        let mut levels = vec![create_initial_level(&initial_vals)];
+        let mut i: usize = 0;
+        while levels[i].len() > 1 {
+            levels.push(calculate_next_level(&levels[i]));
+            i += 1;
         }
-        merkle
+        MerkleTree {
+            levels
+        }
     }
 
     /// Returns the height of the tree; including the root
@@ -98,29 +96,19 @@ impl MerkleTree {
     }
 
     fn add_element(&mut self, element: u32) {
-        let n = self.num_elements();
-        if !is_power_of_2(n) {
-            unimplemented!("Only can add to a tree with power of 2 elements");
-        }
-        // Add n times the hash to the leaves
         let hash = hash_one(element);
-        let mut new_leafs: Vec<Hash> = vec![];
-        for _ in 0..n {
-            new_leafs.push(hash.clone());
+        self.levels[0].push(hash);
+        if self.leafs().len() % 2 == 1 { // Duplicate if we end up with odd number of elements
+            self.levels[0].push(hash);
         }
-        self.levels[0].extend_from_slice(&new_leafs);
 
-        let mut next_level_extension = calculate_next_level(&new_leafs);
-        let last_level = self.height() - 1;
-        for current_level in self.levels.iter_mut().skip(1).take(last_level) {
-            current_level.extend_from_slice(&next_level_extension);
-            next_level_extension = calculate_next_level(&next_level_extension);
+        let mut new_levels: Vec<Vec<Hash>> = vec![self.leafs().clone()];
+        let mut i = 0;
+        while new_levels[i].len() > 1 {
+            new_levels.push(calculate_next_level(&new_levels[i]));
+            i += 1;
         }
-        // We are now at the level previous from the root, first extend that level
-        self.levels[last_level].extend_from_slice(&next_level_extension);
-        // Now generate the new root based on that level, and push it to the end
-        let new_root_level = calculate_next_level(&self.levels[self.height()-1]);
-        self.levels.push(new_root_level);
+        self.levels = new_levels;
     }
 }
 
@@ -165,19 +153,28 @@ fn calculate_next_level(prev_level: &[Hash]) -> Vec<Hash> {
         return next_level;
     }
     for i in (0..prev_level.len()-1).step_by(2) {
-        let hash = hash_multiple(&vec![prev_level[i].clone(), prev_level[i + 1].clone()]);
+        let left = prev_level[i];
+        let right = prev_level[i+1];
+        let hash = hash_multiple(&vec![left, right]);
         next_level.push(hash);
+    }
+    // If the level has an odd number of elements duplicate the last, unless it's the root.
+    if next_level.len() > 1 && next_level.len() % 2 == 1 {
+        next_level.push(next_level[next_level.len()-1]);
     }
     next_level
 }
 
 /// Creates the bottom level (leafs) for a Merkle Tree given a vector of u32
 fn create_initial_level<T: Serializable>(initial_vals: &[T]) -> Vec<Hash> {
-    let mut res: Vec<Hash> = vec![];
+    let mut level: Vec<Hash> = vec![];
     for i in initial_vals.iter() {
-        res.push(Keccak256::digest(i.to_le_bytes()).into());
+        level.push(Keccak256::digest(i.to_le_bytes()).into());
     }
-    res
+    if level.len() % 2 == 1 { // Duplicate last element if we end up with odd number of elements
+        level.push(level[level.len()-1]);
+    }
+    level
 }
 
 /// Returns the digest for a single u32
@@ -194,14 +191,8 @@ fn hash_multiple(hashes: &[Hash]) -> Hash {
     hasher.finalize().into()
 }
 
-/// Returns if a number is power of 2, or 0
-// In this case considering 0 as a power of 2 is useful.
-fn is_power_of_2(n: usize) -> bool {
-    (n & (n - 1)) == 0
-}
-
 fn main() {
-    let mut tree = MerkleTree::create_from_values(&vec![3, 4, 5, 6, 11, 10, 2, 1]);
+    let mut tree = MerkleTree::create_from_values(vec![3, 4, 5, 6, 11, 10, 2, 1]);
     dbg!(&tree);
 
     // Ensure tree contains a given hash
@@ -235,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_creation_and_contains_hash() {
-        let mut tree = MerkleTree::create_from_values(&vec![3, 4, 5, 6]);
+        let mut tree = MerkleTree::create_from_values(vec![3, 4, 5, 6]);
         dbg!(&tree);
 
         let three_hash = hash_one(3);
@@ -290,13 +281,60 @@ mod tests {
 
     #[test]
     fn test_tree_is_generic_over_integers() {
-        let tree = MerkleTree::create_from_values(&vec![3i32, 4i32, 5i32, 6i32]);
+        let tree = MerkleTree::create_from_values(vec![3i32, 4i32, 5i32, 6i32]);
         assert_eq!(tree.num_elements(), 4);
-        let tree = MerkleTree::create_from_values(&vec![3u32, 4u32, 5u32, 6u32]);
+        let tree = MerkleTree::create_from_values(vec![3u32, 4u32, 5u32, 6u32]);
         assert_eq!(tree.num_elements(), 4);
-        let tree = MerkleTree::create_from_values(&vec![3u8, 4u8, 5u8, 6u8]);
+        let tree = MerkleTree::create_from_values(vec![3u8, 4u8, 5u8, 6u8]);
         assert_eq!(tree.num_elements(), 4);
-        let tree = MerkleTree::create_from_values(&vec![3i16, 4i16, 5i16, 6i16]);
+        let tree = MerkleTree::create_from_values(vec![3i16, 4i16, 5i16, 6i16]);
         assert_eq!(tree.num_elements(), 4);
+    }
+
+    #[test]
+    fn test_create_tree_with_odd_num_elements() {
+        let tree = MerkleTree::create_from_values(vec![3, 4, 5]);
+        dbg!(&tree);
+        assert_eq!(tree.num_elements(), 4);
+        assert_eq!(tree.levels[1].len(), 2);
+        assert_eq!(tree.leafs()[2], tree.leafs()[3]);
+
+        let tree = MerkleTree::create_from_values(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        dbg!(&tree);
+        assert_eq!(tree.num_elements(), 10);
+        assert_eq!(tree.leafs()[8], tree.leafs()[9]);
+    }
+
+    #[test]
+    fn test_add_to_tree_4_elems() {
+        let mut tree = MerkleTree::create_from_values(vec![1, 2, 3, 4]);
+        assert_eq!(tree.num_elements(), 4);
+        dbg!(&tree);
+
+        tree.add_element(5);
+        dbg!(&tree);
+        assert_eq!(tree.num_elements(), 6);
+        let n = tree.leafs().len();
+        assert_eq!(tree.leafs()[n-1], tree.leafs()[n-2]);
+    }
+
+    #[test]
+    fn test_add_to_tree_8_elems() {
+        let mut tree = MerkleTree::create_from_values(vec![1, 2, 3, 4, 5, 6, 7, 8]);
+        assert_eq!(tree.levels[0].len(), 8);
+        assert_eq!(tree.levels[1].len(), 4);
+        assert_eq!(tree.levels[2].len(), 2);
+        assert_eq!(tree.levels[3].len(), 1);
+        dbg!(&tree);
+
+        tree.add_element(10);
+        dbg!(&tree);
+        assert_eq!(tree.levels[0].len(), 10);
+        assert_eq!(tree.levels[1].len(), 6);
+        assert_eq!(tree.levels[2].len(), 4);
+        assert_eq!(tree.levels[3].len(), 2);
+        assert_eq!(tree.levels[4].len(), 1);
+        let n = tree.leafs().len();
+        assert_eq!(tree.leafs()[n-1], tree.leafs()[n-2]);
     }
 }
