@@ -13,23 +13,15 @@ struct MerkleTree {
 impl MerkleTree {
     /// Creates a Merkle Tree given a vector of u32
     fn create_from_values<T: Serializable + Clone>(initial_vals: Vec<T>) -> Self {
-        // If we have an odd number of leafs we need to duplicate the last element
-        let mut initial_vals = initial_vals.clone();
-        if initial_vals.len() % 2 == 1 {
-            initial_vals.push(initial_vals.last().unwrap().clone());
+        let mut levels = vec![create_initial_level(&initial_vals)];
+        let mut i: usize = 0;
+        while levels[i].len() > 1 {
+            levels.push(calculate_next_level(&levels[i]));
+            i += 1;
         }
-
-        let initial = create_initial_level(&initial_vals);
-        let mut actual: Box<Vec<Hash>> = Box::new(initial);
-        let mut merkle = MerkleTree {
-            levels: vec![],
-        };
-        merkle.levels.push(*actual.clone());
-        while actual.len() > 1 {
-            actual = Box::new(calculate_next_level(&actual));
-            merkle.levels.push(*actual.clone());
+        MerkleTree {
+            levels
         }
-        merkle
     }
 
     /// Returns the height of the tree; including the root
@@ -175,11 +167,14 @@ fn calculate_next_level(prev_level: &[Hash]) -> Vec<Hash> {
 
 /// Creates the bottom level (leafs) for a Merkle Tree given a vector of u32
 fn create_initial_level<T: Serializable>(initial_vals: &[T]) -> Vec<Hash> {
-    let mut res: Vec<Hash> = vec![];
+    let mut level: Vec<Hash> = vec![];
     for i in initial_vals.iter() {
-        res.push(Keccak256::digest(i.to_le_bytes()).into());
+        level.push(Keccak256::digest(i.to_le_bytes()).into());
     }
-    res
+    if level.len() % 2 == 1 { // Duplicate last element if we end up with odd number of elements
+        level.push(level[level.len()-1]);
+    }
+    level
 }
 
 /// Returns the digest for a single u32
