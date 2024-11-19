@@ -11,7 +11,7 @@ struct MerkleTree {
 }
 
 impl MerkleTree {
-    /// Creates a Merkle Tree given a vector of u32
+    /// Creates a Merkle Tree given a vector of integers
     fn create_from_values<T: Serializable + Clone>(initial_vals: &[T]) -> Self {
         let mut levels = vec![create_initial_level(initial_vals)];
         let mut i: usize = 0;
@@ -49,7 +49,7 @@ impl MerkleTree {
     }
 
     /// Returns the index in the leaf array for a given element, if present.
-    fn leaf_index_for_element(&self, element: u32) -> Option<usize> {
+    fn leaf_index_for_element<T: Serializable>(&self, element: T) -> Option<usize> {
         let hash = hash_one(element);
         self.leafs().iter().position(|h| *h == hash)
     }
@@ -60,7 +60,7 @@ impl MerkleTree {
     }
 
     /// Generates a proof that a certain element belongs to the tree, if present.
-    fn generate_proof(&self, element: u32) -> Option<(Vec<Hash>, usize)> {
+    fn generate_proof<T: Serializable>(&self, element: T) -> Option<(Vec<Hash>, usize)> {
         let leaf_index = self.leaf_index_for_element(element)?;
         let mut proof: Vec<Hash> = vec![];
 
@@ -78,7 +78,7 @@ impl MerkleTree {
     }
 
     /// Given an element, it's index and a proof verifies it against the root of a Merkle Tree
-    fn verify_proof(&self, element: u32, index: usize, proof: &[Hash]) -> bool {
+    fn verify_proof<T: Serializable>(&self, element: T, index: usize, proof: &[Hash]) -> bool {
         let Some(root) = self.root() else {
             return false;
         };
@@ -95,7 +95,7 @@ impl MerkleTree {
         hash == *root
     }
 
-    fn add_element(&mut self, element: u32) {
+    fn add_element<T: Serializable>(&mut self, element: T) {
         let hash = hash_one(element);
         self.levels[0].push(hash);
         if self.leafs().len() % 2 == 1 { // Duplicate if we end up with odd number of elements
@@ -165,7 +165,7 @@ fn calculate_next_level(prev_level: &[Hash]) -> Vec<Hash> {
     next_level
 }
 
-/// Creates the bottom level (leafs) for a Merkle Tree given a vector of u32
+/// Creates the bottom level (leafs) for a Merkle Tree given a vector of integers
 fn create_initial_level<T: Serializable>(initial_vals: &[T]) -> Vec<Hash> {
     let mut level: Vec<Hash> = vec![];
     for i in initial_vals.iter() {
@@ -177,7 +177,7 @@ fn create_initial_level<T: Serializable>(initial_vals: &[T]) -> Vec<Hash> {
     level
 }
 
-/// Returns the digest for a single u32
+/// Returns the digest for a single integer
 fn hash_one<T: Serializable>(n: T) -> Hash {
     Keccak256::digest(n.to_le_bytes()).into()
 }
