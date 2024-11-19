@@ -10,7 +10,7 @@ written in Rust.
 * `make test`
 
 ## Implemented Features
-- Create a Merkle Tree from a list of integers of a size power of 2.
+- Create a Merkle Tree from a list of integers.
 - Add a new element to an existing Merkle Tree.
 - Create a proof that an element belongs to the Merkle Tree.
 - Given an element, index and a proof, verify it against a Merkle Tree.
