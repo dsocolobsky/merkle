@@ -296,6 +296,13 @@ mod tests {
     }
 
     #[test]
+    fn test_tree_works_with_strings() {
+        let tree = MerkleTree::create_from_values(&["banana", "manzana"]);
+        dbg!(&tree);
+        assert_eq!(tree.num_elements(), 2);
+    }
+
+    #[test]
     fn test_create_tree_with_odd_num_elements() {
         let tree = MerkleTree::create_from_values(&[3, 4, 5]);
         dbg!(&tree);

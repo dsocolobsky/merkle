@@ -30,3 +30,10 @@ impl_serializable!(i16);
 impl_serializable!(i32);
 impl_serializable!(i64);
 impl_serializable!(i128);
+
+impl<'a> Serializable for &'a str {
+    type Bytes = &'a [u8];
+    fn to_le_bytes(&self) -> Self::Bytes {
+        self.as_bytes()
+    }
+}
