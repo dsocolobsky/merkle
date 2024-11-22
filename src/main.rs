@@ -41,11 +41,7 @@ impl MerkleTree {
 
     /// Returns the root hash of the tree
     fn root(&self) -> Option<&Hash> {
-        if let Some(root_level) = self.levels.last() {
-            Some(&root_level[0])
-        } else {
-            None
-        }
+        self.levels.last()?.get(0)
     }
 
     /// Returns the index in the leaf array for a given element, if present.
@@ -67,9 +63,9 @@ impl MerkleTree {
         let mut index = leaf_index;
         for level in self.levels.iter().take(self.height() - 1) {
             if index % 2 == 0 {
-                proof.push(level[index+1])
+                proof.push(*level.get(index + 1)?)
             } else {
-                proof.push(level[index-1])
+                proof.push(*level.get(index - 1)?)
             }
             index /= 2;
         }
