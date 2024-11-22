@@ -62,7 +62,7 @@ impl MerkleTree {
     /// Generates a proof that a certain element belongs to the tree, if present.
     fn generate_proof<T: Serializable>(&self, element: T) -> Option<(Vec<Hash>, usize)> {
         let leaf_index = self.leaf_index_for_element(element)?;
-        let mut proof: Vec<Hash> = vec![];
+        let mut proof: Vec<Hash> = Vec::with_capacity(self.height() + 1);
 
         let mut index = leaf_index;
         for level in self.levels.iter().take(self.height() - 1) {
@@ -148,10 +148,10 @@ macro_rules! dbg_level {
 
 /// Creates the next (upper) level for a Merkle Tree given the previous level.
 fn calculate_next_level(prev_level: &[Hash]) -> Vec<Hash> {
-    let mut next_level: Vec<Hash> = vec![];
     if prev_level.is_empty() {
-        return next_level;
+        return vec![];
     }
+    let mut next_level: Vec<Hash> = Vec::with_capacity(prev_level.len()/2 + 1);
     for i in (0..prev_level.len()-1).step_by(2) {
         let left = prev_level[i];
         let right = prev_level[i+1];
@@ -167,7 +167,7 @@ fn calculate_next_level(prev_level: &[Hash]) -> Vec<Hash> {
 
 /// Creates the bottom level (leaves) for a Merkle Tree given a vector of integers
 fn create_initial_level<T: Serializable>(initial_vals: &[T]) -> Vec<Hash> {
-    let mut level: Vec<Hash> = vec![];
+    let mut level: Vec<Hash> = Vec::with_capacity(initial_vals.len() + 1);
     for i in initial_vals.iter() {
         level.push(Keccak256::digest(i.to_le_bytes()).into());
     }
