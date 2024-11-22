@@ -29,13 +29,13 @@ impl MerkleTree {
         self.levels.len()
     }
 
-    /// Returns the number of elements in the tree (leafs)
+    /// Returns the number of elements in the tree (leaves)
     fn num_elements(&self) -> usize {
-        self.leafs().len()
+        self.leaves().len()
     }
 
-    /// Returns the leafs for the tree
-    fn leafs(&self) -> &Vec<Hash> {
+    /// Returns the leaves for the tree
+    fn leaves(&self) -> &Vec<Hash> {
         &self.levels[0]
     }
 
@@ -51,7 +51,7 @@ impl MerkleTree {
     /// Returns the index in the leaf array for a given element, if present.
     fn leaf_index_for_element<T: Serializable>(&self, element: T) -> Option<usize> {
         let hash = hash_one(element);
-        self.leafs().iter().position(|h| *h == hash)
+        self.leaves().iter().position(|h| *h == hash)
     }
 
     /// Checks if the given hash is present at any level of the Merkle Tree
@@ -98,11 +98,11 @@ impl MerkleTree {
     fn add_element<T: Serializable>(&mut self, element: T) {
         let hash = hash_one(element);
         self.levels[0].push(hash);
-        if self.leafs().len() % 2 == 1 { // Duplicate if we end up with odd number of elements
+        if self.leaves().len() % 2 == 1 { // Duplicate if we end up with odd number of elements
             self.levels[0].push(hash);
         }
 
-        let mut new_levels: Vec<Vec<Hash>> = vec![self.leafs().clone()];
+        let mut new_levels: Vec<Vec<Hash>> = vec![self.leaves().clone()];
         let mut i = 0;
         while new_levels[i].len() > 1 {
             new_levels.push(calculate_next_level(&new_levels[i]));
@@ -165,7 +165,7 @@ fn calculate_next_level(prev_level: &[Hash]) -> Vec<Hash> {
     next_level
 }
 
-/// Creates the bottom level (leafs) for a Merkle Tree given a vector of integers
+/// Creates the bottom level (leaves) for a Merkle Tree given a vector of integers
 fn create_initial_level<T: Serializable>(initial_vals: &[T]) -> Vec<Hash> {
     let mut level: Vec<Hash> = vec![];
     for i in initial_vals.iter() {
@@ -308,12 +308,12 @@ mod tests {
         dbg!(&tree);
         assert_eq!(tree.num_elements(), 4);
         assert_eq!(tree.levels[1].len(), 2);
-        assert_eq!(tree.leafs()[2], tree.leafs()[3]);
+        assert_eq!(tree.leaves()[2], tree.leaves()[3]);
 
         let tree = MerkleTree::create_from_values(&[1, 2, 3, 4, 5, 6, 7, 8, 9]);
         dbg!(&tree);
         assert_eq!(tree.num_elements(), 10);
-        assert_eq!(tree.leafs()[8], tree.leafs()[9]);
+        assert_eq!(tree.leaves()[8], tree.leaves()[9]);
     }
 
     #[test]
@@ -325,8 +325,8 @@ mod tests {
         tree.add_element(5);
         dbg!(&tree);
         assert_eq!(tree.num_elements(), 6);
-        let n = tree.leafs().len();
-        assert_eq!(tree.leafs()[n-1], tree.leafs()[n-2]);
+        let n = tree.leaves().len();
+        assert_eq!(tree.leaves()[n-1], tree.leaves()[n-2]);
     }
 
     #[test]
@@ -345,7 +345,7 @@ mod tests {
         assert_eq!(tree.levels[2].len(), 4);
         assert_eq!(tree.levels[3].len(), 2);
         assert_eq!(tree.levels[4].len(), 1);
-        let n = tree.leafs().len();
-        assert_eq!(tree.leafs()[n-1], tree.leafs()[n-2]);
+        let n = tree.leaves().len();
+        assert_eq!(tree.leaves()[n-1], tree.leaves()[n-2]);
     }
 }
