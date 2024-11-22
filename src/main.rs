@@ -12,7 +12,7 @@ struct MerkleTree {
 
 impl MerkleTree {
     /// Creates a Merkle Tree given a vector of integers
-    fn create_from_values<T: Serializable + Clone>(initial_vals: &[T]) -> Self {
+    fn create_from_values<T: Serializable>(initial_vals: &[T]) -> Self {
         let mut levels = vec![create_initial_level(initial_vals)];
         let mut i: usize = 0;
         while levels[i].len() > 1 {
